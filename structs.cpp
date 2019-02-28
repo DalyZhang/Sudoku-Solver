@@ -1,13 +1,46 @@
-// struct Note {
-//     BYTE value;
-//     Note *prev, *next;
-// };
+struct Block;
+struct Sudoku;
+struct Subset;
+struct CheckNode;
+struct CheckList;
+struct SolutionBlock;
+struct Solution;
 
-struct Cell {
-    BYTE value, note[9];
+struct Block {
+	char value;
+	short note;
+	// CheckList *row, *column, *subgrid;
 };
 
-struct NoteCell {
-    Cell *cell;
-    NoteCell *prev, *next;
+struct Sudoku {
+	Block blockStorage[9][9], *blocks[9];
 };
+
+struct Subset {
+	int count;
+	short *exist;
+};
+//
+struct CheckNode {
+	SolutionBlock *block;
+	CheckNode *prev, *next;
+	// CheckList *parent;
+};
+
+struct CheckList {
+	int count;
+	AreaType type;
+	CheckNode sentinel;
+};
+
+struct SolutionBlock {
+	char value;
+	short note;
+	CheckList *area[3];
+};
+
+struct Solution {
+	SolutionBlock blockStorage[9][9], *blocks[9];
+	CheckList area[3][9];
+};
+//

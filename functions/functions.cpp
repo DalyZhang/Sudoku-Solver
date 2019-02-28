@@ -1,14 +1,8 @@
-void solve(void);
-void input(Cell **cells);
-void fillNote(Cell **cells);
-void createNoteCellGuard(NoteCell *noteCellGuardList, Cell **cells);
-void insertNoteCell(NoteCell *noteCellGuard, Cell *cell);
-BYTE flushCell(NoteCell *cellGuard, BYTE *subset, BYTE count, BYTE pos);
-void output(Cell **cells);
+InputStatus inputSudoku(Sudoku *sudoku);
+void outputSudoku(Sudoku *sudoku, int mode);
+Subset createNonEmptySubset(int elementCount);
 
-#include "solve.cpp"
-#include "input.cpp"
-#include "fill-note.cpp"
-#include "create-note-cell-guard.cpp"
-#include "flush-cell.cpp"
-#include "output.cpp"
+#include "input-sudoku.cpp"
+#include "create-non-empty-subset.cpp"
+#include "output-sudoku.cpp"
+#include "solve-sudoku/index.cpp"
