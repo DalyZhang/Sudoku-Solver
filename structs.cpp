@@ -16,6 +16,11 @@ struct Sudoku {
 	Block blockStorage[9][9], *blocks[9];
 };
 
+struct SudokuList {
+	int count;
+	Sudoku **list;
+};
+
 struct Subset {
 	int count;
 	short *exist;

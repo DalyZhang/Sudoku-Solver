@@ -1,10 +1,11 @@
 #include <cstdio>
 #include <cstring>
 #include <cstdlib>
+#include <ctime>
 
 #include "definitions.cpp"
 #include "structs.cpp"
-#include "functions/functions.cpp"
+#include "functions/index.cpp"
 
 int main() {
 
@@ -32,7 +33,7 @@ int main() {
 	// 	puts("eof");
 	// 	return 1;
 	// }
-	// outputSudoku(&sudoku, OUTPUT_MODE_WITH_NOTE);
+	// outputSudoku(&sudoku, OUTPUT_MODE__NOTE);
 
 	// Sudoku sudoku;
 	// if (inputSudoku(&sudoku)) {
@@ -62,17 +63,38 @@ int main() {
 	// fillNote(solution.blocks);
 	// solutionToSudoku(&solution, &after);
 	// destroySolution(&solution);
-	// outputSudoku(&after, OUTPUT_MODE_WITH_NOTE);
+	// outputSudoku(&after, OUTPUT_MODE__NOTE);
 
 	// printf("%i", countExist(15));
 
-	Sudoku before, after;
+	Sudoku before;
+	SudokuList afterList;
 	SolutionStatus status;
+	clock_t startTime, stopTime;
+	int ord = 0;
 	while (!inputSudoku(&before)) {
-		status = solveSudoku(&before, &after);
+
+		if (!checkSudoku(&before)) {
+			puts("error: the sudoku is invalid");
+			continue;
+		}
+
+		startTime = clock();
+		status = solveSudoku(&before, &afterList);
+		stopTime = clock();
+		ord++;
+		printf("ordinal: %i\n", ord);
 		printf("status: %i\n", status);
-		outputSudoku(&after, OUTPUT_MODE_PLAIN);
-		puts("");
+		printf("time: %ims\n", stopTime - startTime);
+		printf("solution count: %i\n", afterList.count);
+		for (int i = 0; i < afterList.count; i++) {
+			puts("---------");
+			outputSudoku(afterList.list[i], OUTPUT_MODE__PLAIN);
+		}
+		puts("=========");
+
+		destorySudokuList(&afterList);
+		
 	}
 
 	// Sudoku before, after;

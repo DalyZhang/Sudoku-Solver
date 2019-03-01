@@ -19,12 +19,12 @@ FillNoteStatus fillNote(SolutionBlock **blocks) {
                     }
                 }
 				if (block->note == 0) {
-					return FILL_NOTE_ERROR;
+					return FILL_NOTE_STATUS__ERROR;
 				}
             }
         }
     }
 
-	return FILL_NOTE_SUCCESS;
+	return FILL_NOTE_STATUS__SUCCESS;
 
 }

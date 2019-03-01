@@ -26,28 +26,29 @@ void createSolution(const Sudoku *sudoku, Solution *solution) {
 
 	*solution = {};
 	for (i1 = 0; i1 < 9; i1++) {
-		for (i2 = 0; i2 < 9; i2++) {
-			solution->blockStorage[i1][i2].value = sudoku->blockStorage[i1][i2].value;
-		}
 		solution->blocks[i1] = &solution->blockStorage[i1][0];
+		for (i2 = 0; i2 < 9; i2++) {
+			solution->blocks[i1][i2].value = sudoku->blocks[i1][i2].value;
+			solution->blocks[i1][i2].note = sudoku->blocks[i1][i2].note;
+		}
 	}
 
 	SolutionBlock *blockList[9] = {};
 	for (i1 = 0; i1 < 9; i1++) {
 		for (i2 = 0; i2 < 9; i2++) {
 			blockList[i2] = &solution->blocks[i1][i2];
-			blockList[i2]->area[AREA_ROW] = &solution->area[AREA_ROW][i1];
+			blockList[i2]->area[AREA_TYPE__ROW] = &solution->area[AREA_TYPE__ROW][i1];
 		}
-		solution->area[AREA_ROW][i1].type = AREA_ROW;
-		createCheckList(&solution->area[AREA_ROW][i1], &blockList[0]);
+		solution->area[AREA_TYPE__ROW][i1].type = AREA_TYPE__ROW;
+		createCheckList(&solution->area[AREA_TYPE__ROW][i1], &blockList[0]);
 	}
 	for (i1 = 0; i1 < 9; i1++) {
 		for (i2 = 0; i2 < 9; i2++) {
 			blockList[i2] = &solution->blocks[i2][i1];
-			blockList[i2]->area[AREA_COLUMN] = &solution->area[AREA_COLUMN][i1];
+			blockList[i2]->area[AREA_TYPE__COLUMN] = &solution->area[AREA_TYPE__COLUMN][i1];
 		}
-		solution->area[AREA_COLUMN][i1].type = AREA_COLUMN;
-		createCheckList(&solution->area[AREA_COLUMN][i1], &blockList[0]);
+		solution->area[AREA_TYPE__COLUMN][i1].type = AREA_TYPE__COLUMN;
+		createCheckList(&solution->area[AREA_TYPE__COLUMN][i1], &blockList[0]);
 	}
 	for (i1 = 0; i1 < 3; i1++) {
 		for (i2 = 0; i2 < 3; i2++) {
@@ -56,11 +57,11 @@ void createSolution(const Sudoku *sudoku, Solution *solution) {
 				for (i4 = 0; i4 < 3; i4++) {
 					i6 = i3 * 3 + i4;
 					blockList[i6] = &solution->blocks[i1 * 3 + i3][i2 * 3 + i4];
-					blockList[i6]->area[AREA_SUBGRID] = &solution->area[AREA_SUBGRID][i5];
+					blockList[i6]->area[AREA_TYPE__SUBGRID] = &solution->area[AREA_TYPE__SUBGRID][i5];
 				}
 			}
-			solution->area[AREA_SUBGRID][i5].type = AREA_SUBGRID;
-			createCheckList(&solution->area[AREA_SUBGRID][i5], &blockList[0]);
+			solution->area[AREA_TYPE__SUBGRID][i5].type = AREA_TYPE__SUBGRID;
+			createCheckList(&solution->area[AREA_TYPE__SUBGRID][i5], &blockList[0]);
 		}
 	}
 

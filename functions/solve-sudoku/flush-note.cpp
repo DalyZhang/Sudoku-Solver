@@ -72,7 +72,7 @@ FlushNoteStatus flushNote(CheckList *list, short exist) {
 	 * -> = `numCount`
      */
 	if (existCount != numCount) {
-		return FLUSH_NOTE_CONTINUE;
+		return FLUSH_NOTE_STATUS__CONTINUE;
 	}
 
 	/**
@@ -119,7 +119,7 @@ FlushNoteStatus flushNote(CheckList *list, short exist) {
 	int restNoteNumCount;
 	char lastNum;
 	short thisExist;
-	FlushNoteStatus status = FLUSH_NOTE_CONTINUE;
+	FlushNoteStatus status = FLUSH_NOTE_STATUS__CONTINUE;
 	for (i1 = 0; i1 < 3; i1++) {
 		
 		/**
@@ -196,10 +196,10 @@ FlushNoteStatus flushNote(CheckList *list, short exist) {
 				 * -> and removed from the current flushed list
 				 */
 				if (restNoteNumCount == 0) {
-					return FLUSH_NOTE_ERROR;
+					return FLUSH_NOTE_STATUS__ERROR;
 				} else if (restNoteNumCount == 1) {
 					if (list->type == i1) {
-						status = FLUSH_NOTE_RECHECK;
+						status = FLUSH_NOTE_STATUS__RECHECK;
 					}
 					flushedList->count--;
 					cnp1->block->value = lastNum;

@@ -9,7 +9,7 @@ InputStatus inputSudoku(Sudoku *sudoku) {
 			while (1) {
 				c1 = getchar();
 				if (c1 == EOF) {
-					return INPUT_EOF;
+					return INPUT_STATUS__EOF;
 				} else if (c1 <= '9' && c1 >= '0') {
 					break;
 				}
@@ -19,6 +19,6 @@ InputStatus inputSudoku(Sudoku *sudoku) {
 		sudoku->blocks[i1] = &sudoku->blockStorage[i1][0];
 	}
 
-	return INPUT_SUCCESS;
+	return INPUT_STATUS__SUCCESS;
 
 }

@@ -3,7 +3,9 @@ void outputSudoku(Sudoku *sudoku, int mode) {
 	int i1, i2, i3;
 	short s1;
 
-	if (mode == OUTPUT_MODE_WITH_NOTE) {
+	switch (mode) {
+
+		case OUTPUT_MODE__NOTE:
 		for (i1 = 0; i1 < 9; i1++) {
 			for (i2 = 0; i2 < 9; i2++) {
 				printf("%i;", sudoku->blocks[i1][i2].value);
@@ -16,13 +18,18 @@ void outputSudoku(Sudoku *sudoku, int mode) {
 			}
 			puts("");
 		}
+		break;
+
+		case OUTPUT_MODE__PLAIN:
+		for (i1 = 0; i1 < 9; i1++) {
+			for (i2 = 0; i2 < 9; i2++) {
+				printf("%i", sudoku->blocks[i1][i2].value);
+			}
+			puts("");
+		}
+		break;
+
 	}
 	
-	for (i1 = 0; i1 < 9; i1++) {
-		for (i2 = 0; i2 < 9; i2++) {
-			printf("%i", sudoku->blocks[i1][i2].value);
-		}
-		puts("");
-	}
 	
 }
