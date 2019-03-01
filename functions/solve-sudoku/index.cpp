@@ -1,6 +1,6 @@
 void createSolution(const Sudoku *sudoku, Solution *solution);
 FillNoteStatus fillNote(SolutionBlock **blocks);
-FlushNoteStatus flushNote(CheckList *list, short exist);
+FlushNoteStatus flushNote(CheckList *list, BoolList exist);
 void solutionToSudoku(Solution *solution, Sudoku *sudoku);
 void destroySolution(Solution *solution);
 SolutionStatus solveSudoku(const Sudoku *before, SudokuList *afterList);

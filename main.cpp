@@ -14,15 +14,15 @@ int main() {
 	// for (int i = 0; i < s.count; i++) {
 	// 	printf("%i\n", s.exist[i]);
 	// }
-	// s = createNonEmptySubset(9);
+	// s = createNonEmptySubset(SD_S);
 	// for (int i = 0; i < s.count; i++) {
 	// 	printf("%i\n", s.exist[i]);
 	// }
 	
 	// Sudoku sudoku;
 	// inputSudoku(&sudoku);
-	// for (int i1 = 0; i1 < 9; i1++) {
-	// 	for (int i2 = 0; i2 < 9; i2++) {
+	// for (int i1 = 0; i1 < SD_S; i1++) {
+	// 	for (int i2 = 0; i2 < SD_S; i2++) {
 	// 		printf("%i", sudoku.blocks[i1][i2].value);
 	// 	}
 	// 	puts("");
@@ -42,7 +42,7 @@ int main() {
 	// }
 	// Solution solution;
 	// createSolution(&sudoku, &solution);
-	// for (int i = 0; i < 9; i++) {
+	// for (int i = 0; i < SD_S; i++) {
 	// 	printf("%i,", solution.area[1][i].count);
 	// 	puts("");
 	// 	CheckNode *cnp = solution.area[1][i].sentinel.next;
@@ -67,6 +67,7 @@ int main() {
 
 	// printf("%i", countExist(15));
 
+
 	Sudoku before;
 	SudokuList afterList;
 	SolutionStatus status;
@@ -74,28 +75,40 @@ int main() {
 	int ord = 0;
 	while (!inputSudoku(&before)) {
 
+		ord++;
 		if (!checkSudoku(&before)) {
-			puts("error: the sudoku is invalid");
+			printf("ordinal: %i\n", ord);
+			puts("status: -1");
+			for (int j = 0; j < SD_S; j++) {
+				printf("=");
+			}
+			puts("");
 			continue;
 		}
 
 		startTime = clock();
 		status = solveSudoku(&before, &afterList);
 		stopTime = clock();
-		ord++;
 		printf("ordinal: %i\n", ord);
 		printf("status: %i\n", status);
 		printf("time: %ims\n", stopTime - startTime);
 		printf("solution count: %i\n", afterList.count);
 		for (int i = 0; i < afterList.count; i++) {
-			puts("---------");
+			for (int j = 0; j < SD_S; j++) {
+				printf("-");
+			}
+			puts("");
 			outputSudoku(afterList.list[i], OUTPUT_MODE__PLAIN);
 		}
-		puts("=========");
+		for (int j = 0; j < SD_S; j++) {
+			printf("=");
+		}
+		puts("");
 
 		destorySudokuList(&afterList);
 		
 	}
+
 
 	// Sudoku before, after;
 	// inputSudoku(&before);

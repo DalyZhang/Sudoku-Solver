@@ -8,12 +8,12 @@ struct Solution;
 
 struct Block {
 	char value;
-	short note;
+	BoolList note;
 	// CheckList *row, *column, *subgrid;
 };
 
 struct Sudoku {
-	Block blockStorage[9][9], *blocks[9];
+	Block blockStorage[SD_S][SD_S], *blocks[SD_S];
 };
 
 struct SudokuList {
@@ -23,7 +23,7 @@ struct SudokuList {
 
 struct Subset {
 	int count;
-	short *exist;
+	BoolList *exist;
 };
 //
 struct CheckNode {
@@ -40,12 +40,12 @@ struct CheckList {
 
 struct SolutionBlock {
 	char value;
-	short note;
+	BoolList note;
 	CheckList *area[3];
 };
 
 struct Solution {
-	SolutionBlock blockStorage[9][9], *blocks[9];
-	CheckList area[3][9];
+	SolutionBlock blockStorage[SD_S][SD_S], *blocks[SD_S];
+	CheckList area[3][SD_S];
 };
 //

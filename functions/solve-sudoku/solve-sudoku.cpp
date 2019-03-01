@@ -17,21 +17,21 @@ SolutionStatus solveSudoku(const Sudoku *before, SudokuList *afterList) {
 	solveStack++;
 
 	int i1, i2, i3;
-	short s1;
+	BoolList s1;
 
 	Solution solution;
 	createSolution(before, &solution);
 	fillNote(solution.blocks);
 
 	Subset subset;
-	SolutionBlock blockCache[9][9];
+	SolutionBlock blockCache[SD_S][SD_S];
 	SolutionStatus status;
 	FlushNoteStatus flushStatus;
 	char finished, error = 0, toCreateHypothesis = 0;
 	memcpy(&blockCache, &solution.blockStorage, sizeof (blockCache));
 	while (1) {
 		for (i1 = 0; i1 < 3 && !error; i1++) {
-			for (i2 = 0; i2 < 9 && !error; i2++) {
+			for (i2 = 0; i2 < SD_S && !error; i2++) {
 				if (solution.area[i1][i2].count == 0) {
 					continue;
 				}
@@ -53,8 +53,8 @@ SolutionStatus solveSudoku(const Sudoku *before, SudokuList *afterList) {
 			status = SOLUTION_STATUS__ERROR;
 			break;
 		}
-		for (i1 = 0, finished = 1; i1 < 9; i1++) {
-			for (i2 = 0; i2 < 9; i2++) {
+		for (i1 = 0, finished = 1; i1 < SD_S; i1++) {
+			for (i2 = 0; i2 < SD_S; i2++) {
 				if (solution.blocks[i1][i2].value == 0) {
 					finished = 0;
 				}
@@ -88,8 +88,8 @@ SolutionStatus solveSudoku(const Sudoku *before, SudokuList *afterList) {
 		// outputSudoku(&checkPoint, OUTPUT_MODE__NOTE);
 
 		Block *firstNonValueBlock = NULL;
-		for (i1 = 0; i1 < 9; i1++) {
-			for (i2 = 0; i2 < 9; i2++) {
+		for (i1 = 0; i1 < SD_S; i1++) {
+			for (i2 = 0; i2 < SD_S; i2++) {
 				if (checkPoint.blocks[i1][i2].value == 0) {
 					firstNonValueBlock = &checkPoint.blocks[i1][i2];
 					break;
@@ -101,8 +101,8 @@ SolutionStatus solveSudoku(const Sudoku *before, SudokuList *afterList) {
 		}
 
 		int noteNumCount = 0;
-		char noteNumList[9];
-		for (i1 = 0, s1 = firstNonValueBlock->note; i1 < 9; i1++, s1 >>= 1) {
+		char noteNumList[SD_S];
+		for (i1 = 0, s1 = firstNonValueBlock->note; i1 < SD_S; i1++, s1 >>= 1) {
 			if (s1 & 1) {
 				noteNumList[noteNumCount] = i1 + 1;
 				noteNumCount++;

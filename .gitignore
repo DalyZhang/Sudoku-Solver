@@ -1,4 +1,4 @@
 /.vscode
-*.exe
-error.txt
-*.bat
+/*.exe
+/error.txt
+/*.bat

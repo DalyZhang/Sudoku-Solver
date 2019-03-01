@@ -1,8 +1,8 @@
-int countExist(short exist) {
+int countExist(BoolList exist) {
 
 	int i1, i2;
 
-	for (i1 = 0, i2 = 0; i1 < 9; i1++, exist >>= 1) {
+	for (i1 = 0, i2 = 0; i1 < SD_S; i1++, exist >>= 1) {
 		if (exist & 1) {
 			i2++;
 		}
@@ -12,22 +12,22 @@ int countExist(short exist) {
 
 }
 
-void printExist(short exist) {
+void printExist(BoolList exist) {
 
 	int i1 = 0;
 	
-	for (i1 = 0; i1 < 9; i1++, exist >>= 1) {
+	for (i1 = 0; i1 < SD_S; i1++, exist >>= 1) {
 		printf("%i", exist & 1);
 	}
 
 }
 
-FlushNoteStatus flushNote(CheckList *list, short exist) {
+FlushNoteStatus flushNote(CheckList *list, BoolList exist) {
 
 	int i1, i2, i3, i4;
 	CheckNode *cnp1 = NULL, *cnp2 = NULL;
 	CheckList *clp1 = NULL;
-	short s1;
+	BoolList s1;
 
 	/**
 	 * existCount -> the number of blocks selected by `exist`
@@ -36,7 +36,7 @@ FlushNoteStatus flushNote(CheckList *list, short exist) {
 	 * -> note numbers in selected blocks
 	 */
 	int existCount;
-	short collection = 0;
+	BoolList collection = 0;
 	cnp1 = list->sentinel.next;
 	for (i1 = i2 = 0, s1 = exist; i1 < list->count; i1++, s1 >>= 1) {
 		if (s1 & 1) {
@@ -68,9 +68,9 @@ FlushNoteStatus flushNote(CheckList *list, short exist) {
 	}
 	
 	/*
-     * flush note numbers of unselected blocks when `existCount`
+	 * flush note numbers of unselected blocks when `existCount`
 	 * -> = `numCount`
-     */
+	 */
 	if (existCount != numCount) {
 		return FLUSH_NOTE_STATUS__CONTINUE;
 	}
@@ -118,7 +118,7 @@ FlushNoteStatus flushNote(CheckList *list, short exist) {
 	CheckList *flushedList = NULL;
 	int restNoteNumCount;
 	char lastNum;
-	short thisExist;
+	BoolList thisExist;
 	FlushNoteStatus status = FLUSH_NOTE_STATUS__CONTINUE;
 	for (i1 = 0; i1 < 3; i1++) {
 		
@@ -167,8 +167,8 @@ FlushNoteStatus flushNote(CheckList *list, short exist) {
 		}
 
 		/*
-         * remove and mark the specific blocks
-         */
+		 * remove and mark the specific blocks
+		 */
 		cnp1 = flushedList->sentinel.next;
 		for (i2 = 0; cnp1 != &flushedList->sentinel; i2++) {
 			if (thisExist & (1 << i2)) {
@@ -176,7 +176,7 @@ FlushNoteStatus flushNote(CheckList *list, short exist) {
 				/**
 				 * calculate the value of `lastNum` and `restNoteNumCount`
 				 */
-				for (i3 = i4 = 0, s1 = cnp1->block->note; i3 < 9; i3++, s1 >>= 1) {
+				for (i3 = i4 = 0, s1 = cnp1->block->note; i3 < SD_S; i3++, s1 >>= 1) {
 					if (s1 & 1) {
 						i4++;
 						lastNum = (char)(i3 + 1);

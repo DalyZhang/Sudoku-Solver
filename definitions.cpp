@@ -1,3 +1,14 @@
+typedef short BoolList;
+
+#define SUDOKU_ORDER 4 // only 1, 2, 3, 4 is available
+#define SUDOKU_SIDE SUDOKU_ORDER * SUDOKU_ORDER
+#define SD_O SUDOKU_ORDER
+#define SD_S SUDOKU_SIDE
+#define SUDOKU_CHAR_LISTS {"01", "01234", "0123456789", "0123456789ABCDEFG"}
+
+#define SOLUTION_SUDOKU_LIST_MAX 100000
+
+
 enum SolutionStatus {
 	SOLUTION_STATUS__SUCCESS,
 	SOLUTION_STATUS__ERROR
@@ -14,7 +25,8 @@ enum AreaType {
 };
 enum OutputMode {
 	OUTPUT_MODE__PLAIN,
-	OUTPUT_MODE__NOTE
+	OUTPUT_MODE__NOTE,
+	OUTPUT_MODE__IMAGE
 };
 enum InputStatus {
 	INPUT_STATUS__SUCCESS,
