@@ -1,9 +1,5 @@
-typedef short BoolList;
+typedef short note_t;
 
-#define SUDOKU_ORDER 3 // only 1, 2, 3, 4 is available
-#define SUDOKU_SIDE SUDOKU_ORDER * SUDOKU_ORDER
-#define SD_O SUDOKU_ORDER
-#define SD_S SUDOKU_SIDE
 #define SUDOKU_CHAR_LISTS {"01", "01234", "0123456789", "0123456789ABCDEFG"}
 #define SUDOKU_PIVOT '+'
 #define SUDOKU_LINE_H '-'
@@ -11,33 +7,3 @@ typedef short BoolList;
 #define SUDOKU_SPACE ' '
 #define SUDOKU_BRACKET_L '['
 #define SUDOKU_BRACKET_R ']'
-
-#define SOLUTION_SUDOKU_LIST_MAX 100000
-
-enum SolutionStatus {
-	SOLUTION_STATUS__SUCCESS,
-	SOLUTION_STATUS__ERROR
-};
-enum FlushNoteStatus {
-	FLUSH_NOTE_STATUS__CONTINUE,
-	FLUSH_NOTE_STATUS__ERROR,
-	FLUSH_NOTE_STATUS__RECHECK
-};
-enum AreaType {
-	AREA_TYPE__ROW,
-	AREA_TYPE__COLUMN,
-	AREA_TYPE__SUBGRID
-};
-enum OutputMode {
-	OUTPUT_MODE__PLAIN,
-	OUTPUT_MODE__NOTE,
-	OUTPUT_MODE__IMAGE
-};
-enum InputStatus {
-	INPUT_STATUS__SUCCESS,
-	INPUT_STATUS__EOF
-};
-enum FillNoteStatus {
-	FILL_NOTE_STATUS__SUCCESS,
-	FILL_NOTE_STATUS__ERROR
-};

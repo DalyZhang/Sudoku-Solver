@@ -1,120 +1,50 @@
 #include <cstdio>
 #include <cstring>
 #include <cstdlib>
-#include <ctime>
+#include <windows.h>
+#include <conio.h>
 
 #include "definitions.cpp"
-#include "structs.cpp"
-#include "functions/index.cpp"
+#include "classes/index.cpp"
 
 int main() {
 
-	// Subset s;
-	// s = createNonEmptySubset(4);
-	// for (int i = 0; i < s.count; i++) {
-	// 	printf("%i\n", s.exist[i]);
-	// }
-	// s = createNonEmptySubset(SD_S);
-	// for (int i = 0; i < s.count; i++) {
-	// 	printf("%i\n", s.exist[i]);
-	// }
-	
-	// Sudoku sudoku;
-	// inputSudoku(&sudoku);
-	// for (int i1 = 0; i1 < SD_S; i1++) {
-	// 	for (int i2 = 0; i2 < SD_S; i2++) {
-	// 		printf("%i", sudoku.blocks[i1][i2].value);
-	// 	}
-	// 	puts("");
-	// }
+	int order = 3, side = order * order;
+	Sudoku sudoku(order);
+	SudokuSolution *solution = nullptr;
+	int ord;
+	double totalTime;
+	FILE *fp = nullptr;
 
-	// Sudoku sudoku;
-	// if (inputSudoku(&sudoku)) {
-	// 	puts("eof");
-	// 	return 1;
-	// }
-	// outputSudoku(&sudoku, OUTPUT_MODE__NOTE);
-
-	// Sudoku sudoku;
-	// if (inputSudoku(&sudoku)) {
-	// 	puts("eof");
-	// 	return 1;
-	// }
-	// Solution solution;
-	// createSolution(&sudoku, &solution);
-	// for (int i = 0; i < SD_S; i++) {
-	// 	printf("%i,", solution.area[1][i].count);
-	// 	puts("");
-	// 	CheckNode *cnp = solution.area[1][i].sentinel.next;
-	// 	while (cnp->block != NULL) {
-	// 		printf("%i,", (int)cnp->block->value);
-	// 		cnp = cnp->next;
-	// 	}
-	// 	puts("");
-	// }
-	
-	// Sudoku before, after;
-	// if (inputSudoku(&before)) {
-	// 	puts("eof");
-	// 	return 1;
-	// }
-	// Solution solution;
-	// createSolution(&before, &solution);
-	// fillNote(solution.blocks);
-	// solutionToSudoku(&solution, &after);
-	// destroySolution(&solution);
-	// outputSudoku(&after, OUTPUT_MODE__NOTE);
-
-	// printf("%i", countExist(15));
-
-
-	Sudoku before;
-	SudokuList afterList;
-	SolutionStatus status;
-	clock_t startTime, stopTime;
-	int ord = 0;
-	while (!inputSudoku(&before)) {
-
+	// fp = fopen("solver1.result.txt", "wb");
+	fp = stdout;
+	ord = 0;
+	totalTime = 0
+	while (sudoku.read() != Sudoku::RS_EOF) {
 		ord++;
-		if (!checkSudoku(&before)) {
-			printf("ordinal: %i\n", ord);
-			puts("status: -1");
-			for (int j = 0; j < SD_S; j++) {
-				printf("=");
+		solution = SudokuSolver1::solve(sudoku);
+		totalTime += solution->time;
+		fprintf(fp, "ordinal: %i\n", ord);
+		fprintf(fp, "status: %i\n", solution->status);
+		fprintf(fp, "time: %lfms\n", solution->time);
+		fprintf(fp, "solution count: %i\n", solution->getCount());
+		for (auto &result : *solution) {
+			for (int i = 0; i < side; i++) {
+				fputc('-', fp);
 			}
-			puts("");
-			continue;
+			fputc('\n', fp);
+			result->write(Sudoku::WM_PLAIN, fp);
 		}
-
-		startTime = clock();
-		status = solveSudoku(&before, &afterList);
-		stopTime = clock();
-		printf("ordinal: %i\n", ord);
-		printf("status: %i\n", status);
-		printf("time: %ims\n", stopTime - startTime);
-		printf("solution count: %i\n", afterList.count);
-		for (int i = 0; i < afterList.count; i++) {
-			for (int j = 0; j < SD_S; j++) {
-				printf("-");
-			}
-			puts("");
-			outputSudoku(afterList.list[i], OUTPUT_MODE__PLAIN);
+		for (int i = 0; i < side; i++) {
+			fputc('=', fp);
 		}
-		for (int j = 0; j < SD_S; j++) {
-			printf("=");
-		}
-		puts("");
-
-		destorySudokuList(&afterList);
-		
+		fputc('\n', fp);
+		delete solution;
+		fflush(fp);
 	}
-
-
-	// Sudoku before, after;
-	// inputSudoku(&before);
-	// while (1) {
-	// 	solveSudoku(&before, &after);
-	// }
+	fprintf(fp, "total spend: %lfms", totalTime);
+	fclose(fp);
 
 	return 0;
+
 }
