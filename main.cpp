@@ -19,7 +19,7 @@ int main() {
 	// fp = fopen("solver1.result.txt", "wb");
 	fp = stdout;
 	ord = 0;
-	totalTime = 0
+	totalTime = 0;
 	while (sudoku.read() != Sudoku::RS_EOF) {
 		ord++;
 		solution = SudokuSolver1::solve(sudoku);

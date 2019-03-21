@@ -119,6 +119,7 @@ void SudokuFilter::filter(Sudoku &sudoku, SudokuSolution &solution) {
 		}
 		if (error) {
 			solution.status = SudokuSolution::S_ERROR;
+			delete filledSudoku;
 			break;
 		}
 		for (i1 = 0, finished = true; i1 < side && finished; i1++) {
@@ -141,6 +142,8 @@ void SudokuFilter::filter(Sudoku &sudoku, SudokuSolution &solution) {
 		}
 		Sudoku::deepCopyAssign(*checkPoint, *filledSudoku);
 	}
+
+	delete checkPoint;
 
 }
 

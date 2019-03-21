@@ -21,6 +21,9 @@ SudokuSolution::SudokuSolution() {
 }
 
 SudokuSolution::~SudokuSolution() {
+	for (int i1 = 0; i1 < count; i1++) {
+		delete sudokus[i1];
+	}
 	delete[] sudokus;
 	sudokus = nullptr;
 }
