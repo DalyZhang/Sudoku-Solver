@@ -5,6 +5,7 @@ private:
 	int count = 0;
 	Sudoku **sudokus = nullptr;
 public:
+	int pseudoCount = 0;
 	Status status = S_ERROR;
 	double time;
 	long long tryTimes;
@@ -38,7 +39,11 @@ void SudokuSolution::push(Sudoku *sudoku) {
 }
 
 int SudokuSolution::getCount() {
-	return count;
+	if (pseudoCount == 0) {
+		return count;
+	} else {
+		return pseudoCount;
+	}
 }
 
 Sudoku **SudokuSolution::begin() {

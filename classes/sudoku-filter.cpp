@@ -20,10 +20,12 @@ private:
 		ScannerNode *end();
 		int getCount() const;
 	};
+	static Mode mode;
+	static void pushSudokuToSolutionOrDelete(SudokuSolution &solution, Sudoku &sudoku);
 	static void filter(Sudoku &sudoku, SudokuSolution &solution);
 	static FillValueStatus fillValue(Sudoku &sudoku, short subset, Scanner **scanners, AreaType areaType, int areaPos);
 public:
-	static SudokuSolution *solve(Sudoku &sudoku);
+	static SudokuSolution *solve(Sudoku &sudoku, Mode mode = M_ALL);
 };
 
 SudokuFilter::Scanner::Scanner() {
@@ -68,6 +70,20 @@ SudokuFilter::ScannerNode *SudokuFilter::Scanner::end() {
 
 int SudokuFilter::Scanner::getCount() const {
 	return count;
+}
+
+SudokuFilter::Mode SudokuFilter::mode;
+
+void SudokuFilter::pushSudokuToSolutionOrDelete(SudokuSolution &solution, Sudoku &sudoku) {
+	switch (mode) {
+	case M_ALL: case M_FIRST:
+		solution.push(&sudoku);
+		break;
+	case M_COUNT_ALL: case M_COUNT_FIRST:
+		delete &sudoku;
+		solution.pseudoCount++;
+		break;
+	}
 }
 
 void SudokuFilter::filter(Sudoku &sudoku, SudokuSolution &solution) {
@@ -131,12 +147,12 @@ void SudokuFilter::filter(Sudoku &sudoku, SudokuSolution &solution) {
 			}
 		}
 		if (finished) {
-			solution.push(filledSudoku);
+			pushSudokuToSolutionOrDelete(solution, *filledSudoku);
 			solution.status = SudokuSolution::S_SUCCESS;
 			break;
 		}
 		if (Sudoku::compare(*checkPoint, *filledSudoku)) {
-			solution.push(filledSudoku);
+			pushSudokuToSolutionOrDelete(solution, *filledSudoku);
 			solution.status = SudokuSolution::S_UNFINISHED;
 			break;
 		}
@@ -355,9 +371,10 @@ SudokuFilter::FillValueStatus SudokuFilter::fillValue(Sudoku &sudoku, short subs
 
 }
 
-SudokuSolution *SudokuFilter::solve(Sudoku &sudoku) {
+SudokuSolution *SudokuFilter::solve(Sudoku &sudoku, Mode mode) {
 	Timer timer;
 	timer.start();
+	SudokuFilter::mode = mode;
 	SudokuSolution *solution = new SudokuSolution;
 	if (sudoku.check()) {
 		filter(sudoku, *solution);

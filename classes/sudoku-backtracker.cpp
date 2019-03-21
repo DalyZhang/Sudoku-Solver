@@ -1,11 +1,12 @@
 class SudokuBacktracker : public SudokuSolver {
 public:
-	typedef SudokuSolution *(*Filter)(Sudoku &);
+	typedef SudokuSolution *(*Filter)(Sudoku &, Mode);
 private:
 	static int side;
 	static int sideSquare;
 	static Mode mode;
 	static Filter filter;
+	static void copyAndPushSudokuToSolution(SudokuSolution &solution, Sudoku &sudoku);
 	static void backtrack(Sudoku *sudoku, SudokuSolution &solution, int blockOffset);
 public:
 	static SudokuSolution *solve(Sudoku &sudoku, Mode mode = M_ALL, Filter filter = nullptr);
@@ -19,17 +20,29 @@ SudokuBacktracker::Mode SudokuBacktracker::mode;
 
 SudokuBacktracker::Filter SudokuBacktracker::filter;
 
+void SudokuBacktracker::copyAndPushSudokuToSolution(SudokuSolution &solution, Sudoku &sudoku) {
+	switch (mode) {
+	case M_ALL: case M_FIRST:
+		solution.push(Sudoku::deepCopyCreate(sudoku));
+		break;
+	case M_COUNT_ALL: case M_COUNT_FIRST:
+		solution.pseudoCount++;
+		break;
+	}
+}
+
 void SudokuBacktracker::backtrack(Sudoku *sudoku, SudokuSolution &solution, int blockOffset) {
 
 	Sudoku *checkPoint = nullptr;
 	SudokuSolution *filterSolution = nullptr;
 	if (filter != nullptr) {
 		bool toBacktrack;
-		filterSolution = filter(*sudoku);
+		filterSolution = filter(*sudoku, M_ALL);
 		switch (filterSolution->status) {
 		case SudokuSolution::S_SUCCESS:
 			solution.status = SudokuSolution::S_SUCCESS;
-			solution.push(Sudoku::deepCopyCreate(**filterSolution->begin()));
+			copyAndPushSudokuToSolution(solution, **filterSolution->begin());
+			// solution.push(Sudoku::deepCopyCreate(**filterSolution->begin()));
 			toBacktrack = false;
 			break;
 		case SudokuSolution::S_ERROR:
@@ -60,7 +73,7 @@ void SudokuBacktracker::backtrack(Sudoku *sudoku, SudokuSolution &solution, int 
 			if (sudoku->checkBlock(i2, i3, i4)) {
 				sudoku->setValue(i2, i3, i4);
 				backtrack(sudoku, solution, i1 + 1);
-				if (mode == M_FIRST && solution.status == SudokuSolution::S_SUCCESS) {
+				if ((mode == M_FIRST || mode == M_COUNT_FIRST) && solution.status == SudokuSolution::S_SUCCESS) {
 					break;
 				}
 			}
@@ -77,7 +90,7 @@ void SudokuBacktracker::backtrack(Sudoku *sudoku, SudokuSolution &solution, int 
 
 	if (i1 == sideSquare) {
 		solution.status = SudokuSolution::S_SUCCESS;
-		solution.push(Sudoku::deepCopyCreate(*sudoku));
+		copyAndPushSudokuToSolution(solution, *sudoku);
 	}
 
 }

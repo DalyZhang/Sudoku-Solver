@@ -1,6 +1,6 @@
 class SudokuSolver {
 public:
-	enum Mode {M_ALL, M_FIRST};
+	enum Mode {M_ALL, M_FIRST, M_COUNT_ALL, M_COUNT_FIRST};
 };
 
 #include "sudoku-backtracker.cpp"
@@ -23,6 +23,6 @@ public:
 class SudokuSolver3 : public SudokuSolver {
 public:
 	static SudokuSolution *solve(Sudoku &sudoku, Mode mode = M_ALL) {
-		return SudokuFilter::solve(sudoku);
+		return SudokuFilter::solve(sudoku, mode);
 	}
 };
