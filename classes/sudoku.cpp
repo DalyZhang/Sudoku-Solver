@@ -67,7 +67,7 @@ int Sudoku::initCharModeMaxOrder() {
 }
 
 Sudoku::Sudoku(int order) {
-	if (order < 1) {
+	if (order < 1 || order > charModeMaxOrder) {
 		order = 3;
 	}
 	this->order = order;

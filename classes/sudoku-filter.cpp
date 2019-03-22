@@ -1,7 +1,7 @@
 class SudokuFilter : public SudokuSolver {
 public:
 	enum AreaType {AT_ROW, AT_COLUMN, AT_SUBGRID};
-	enum FillValueStatus {FVS_CONTINUE, FVS_ERROR, FVS_RESET};
+	enum FlushNoteStatus {FNS_CONTINUE, FNS_ERROR, FNS_RESET};
 private:
 	struct ScannerNode {
 		int y, x;
@@ -20,10 +20,21 @@ private:
 		ScannerNode *end();
 		int getCount() const;
 	};
+	typedef FlushNoteStatus (*FlushNote)(short);
 	static Mode mode;
+	static int order;
+	static int side;
+	static FlushNote flushNote;
+	static int elementCount;
+	static int existCountMax;
+	static Scanner *scanners[3];
+	static Sudoku *filledSudoku;
+	static AreaType scannerAreaType;
+	static int scannerAreaPos;
 	static void pushSudokuToSolutionOrDelete(SudokuSolution &solution, Sudoku &sudoku);
 	static void filter(Sudoku &sudoku, SudokuSolution &solution);
-	static FillValueStatus fillValue(Sudoku &sudoku, short subset, Scanner **scanners, AreaType areaType, int areaPos);
+	static FlushNoteStatus forEachSubsetInvokeFlush(int subset, int currentPos, int currentExistCount);
+	static FlushNoteStatus flushNotePositivily(short subset);
 public:
 	static SudokuSolution *solve(Sudoku &sudoku, Mode mode = M_ALL);
 };
@@ -74,6 +85,24 @@ int SudokuFilter::Scanner::getCount() const {
 
 SudokuFilter::Mode SudokuFilter::mode;
 
+int SudokuFilter::order;
+
+int SudokuFilter::side;
+
+SudokuFilter::FlushNote SudokuFilter::flushNote;
+
+int SudokuFilter::elementCount;
+
+int SudokuFilter::existCountMax;
+
+SudokuFilter::Scanner *SudokuFilter::scanners[3] = {};
+
+Sudoku *SudokuFilter::filledSudoku = nullptr;
+
+SudokuFilter::AreaType SudokuFilter::scannerAreaType;
+
+int SudokuFilter::scannerAreaPos;
+
 void SudokuFilter::pushSudokuToSolutionOrDelete(SudokuSolution &solution, Sudoku &sudoku) {
 	switch (mode) {
 	case M_ALL: case M_FIRST:
@@ -90,46 +119,44 @@ void SudokuFilter::filter(Sudoku &sudoku, SudokuSolution &solution) {
 
 	int i1, i2, i3;
 
-	int order = sudoku.getOrder();
-	int side = order * order;
-	int sideSquare = side * side;
-
-	Scanner scanners[3][side], *scannersPtr[3];
+	Scanner scannerStorage[3][side];
 	for (i1 = 0; i1 < side; i1++) {
 		for (i2 = 0; i2 < side; i2++) {
 			i3 = i1 / order * order + i2 / order;
 			if (sudoku.getValue(i1, i2) == 0) {
-				scanners[AT_ROW][i1].push(i1, i2);
-				scanners[AT_COLUMN][i2].push(i1, i2);
-				scanners[AT_SUBGRID][i3].push(i1, i2);
+				scannerStorage[AT_ROW][i1].push(i1, i2);
+				scannerStorage[AT_COLUMN][i2].push(i1, i2);
+				scannerStorage[AT_SUBGRID][i3].push(i1, i2);
 			}
 		}
 	}
 	for (i1 = 0; i1 < 3; i1++) {
-		scannersPtr[i1] = scanners[i1];
+		scanners[i1] = scannerStorage[i1];
 	}
 
-	Sudoku *filledSudoku = Sudoku::deepCopyCreate(sudoku);
+	filledSudoku = Sudoku::deepCopyCreate(sudoku);
 	filledSudoku->fillNote();
 	Sudoku *checkPoint = Sudoku::deepCopyCreate(*filledSudoku);
 	ScannerNode *snPtr = nullptr, *snEnd = nullptr;
 	short subset;
-	FillValueStatus fillValueStatus;
+	FlushNoteStatus flushNoteStatus;
 	bool finished, error = false;
 	while (true) {
 		for (i1 = 0; i1 < 3 && !error; i1++) {
-			for (i2 = 0; i2 < side && !error; i2++) {
-				i3 = 1 << scanners[i1][i2].getCount();
-				for (subset = 1; subset < i3; subset++) {
-					fillValueStatus = fillValue(*filledSudoku, subset, scannersPtr, (AreaType)i1, i2);
-					if (fillValueStatus == FVS_RESET) {
-						i2--;
-						break;
-					}
-					if (fillValueStatus == FVS_ERROR) {
-						error = true;
-						break;
-					}
+			for (i2 = 0; i2 < side; i2++) {
+				elementCount = scanners[i1][i2].getCount();
+				existCountMax = elementCount;
+				scannerAreaType = (AreaType)i1;
+				scannerAreaPos = i2;
+				flushNote = flushNotePositivily;
+				flushNoteStatus = forEachSubsetInvokeFlush(0, 0, 0);
+				if (flushNoteStatus == FNS_RESET) {
+					i2--;
+					continue;
+				}
+				if (flushNoteStatus == FNS_ERROR) {
+					error = true;
+					break;
 				}
 			}
 		}
@@ -163,16 +190,39 @@ void SudokuFilter::filter(Sudoku &sudoku, SudokuSolution &solution) {
 
 }
 
-SudokuFilter::FillValueStatus SudokuFilter::fillValue(Sudoku &sudoku, short subset,
-	Scanner **scanners, AreaType areaType, int areaPos) {
+SudokuFilter::FlushNoteStatus SudokuFilter::forEachSubsetInvokeFlush(int subset, int currentPos, int currentExistCount) {
+
+	FlushNoteStatus flushNoteStatus;
+	short newSubset;
+
+	while (currentPos < elementCount) {
+		newSubset = subset | (1 << currentPos);
+		if (newSubset != 0) {
+			flushNoteStatus = flushNote(newSubset);
+			if (flushNoteStatus != FNS_CONTINUE) {
+				return flushNoteStatus;
+			}
+		}
+		if (currentExistCount + 1 < existCountMax) {
+			flushNoteStatus = forEachSubsetInvokeFlush(newSubset, currentPos + 1, currentExistCount + 1);
+			if (flushNoteStatus != FNS_CONTINUE) {
+				return flushNoteStatus;
+			}
+		}
+		currentPos++;
+	}
+
+	return FNS_CONTINUE;
+
+}
+
+SudokuFilter::FlushNoteStatus SudokuFilter::flushNotePositivily(short subset) {
 
 	int i1, i2, i3, i4;
 	short s1;
 	ScannerNode *snp1 = nullptr;
 
-	int order = sudoku.getOrder();
-	int side = order * order;
-	Scanner &scanner = scanners[areaType][areaPos];
+	Scanner &scanner = scanners[scannerAreaType][scannerAreaPos];
 
 	/**
 	 * existCount -> the number of blocks selected by `subset`
@@ -186,7 +236,7 @@ SudokuFilter::FillValueStatus SudokuFilter::fillValue(Sudoku &sudoku, short subs
 	for (i1 = i2 = 0, s1 = subset; i1 < scanner.getCount(); i1++, s1 >>= 1) {
 		if (s1 & 1) {
 			i2++;
-			collection |= sudoku.getNote(snp1->y, snp1->x);
+			collection |= filledSudoku->getNote(snp1->y, snp1->x);
 		}
 		snp1 = snp1->next;
 	}
@@ -223,7 +273,7 @@ SudokuFilter::FillValueStatus SudokuFilter::fillValue(Sudoku &sudoku, short subs
 	 * -> = `numCount`
 	 */
 	if (existCount != numCount) {
-		return FVS_CONTINUE;
+		return FNS_CONTINUE;
 	}
 
 	/**
@@ -273,7 +323,7 @@ SudokuFilter::FillValueStatus SudokuFilter::fillValue(Sudoku &sudoku, short subs
 	int restNoteNumCount;
 	int lastNum;
 	short areaSubset;
-	FillValueStatus status = FVS_CONTINUE;
+	FlushNoteStatus status = FNS_CONTINUE;
 	for (i1 = 0; i1 < 3; i1++) {
 
 		/**
@@ -292,7 +342,7 @@ SudokuFilter::FillValueStatus SudokuFilter::fillValue(Sudoku &sudoku, short subs
 		/**
 		 * calculate the value of `areaSubset`
 		 */
-		if (areaType == i1) {
+		if (scannerAreaType == i1) {
 			areaSubset = subset;
 		} else {
 			areaSubset = 0;
@@ -311,11 +361,17 @@ SudokuFilter::FillValueStatus SudokuFilter::fillValue(Sudoku &sudoku, short subs
 		/**
 		 * start flushing on the unselected blocks, delete note
 		 * -> numbers existing in the collection
+		 * 
+		 * if a block has no note numbers after flushing, it
+		 * -> cannot be marked with any value number and the sudoku
+		 * -> is self-contradictory
 		 */
 		snp1 = areaScanner->begin();
 		for (i2 = 0; i2 < areaScanner->getCount(); i2++) {
 			if (!(areaSubset & (1 << i2))) {
-				sudoku.getNote(snp1->y, snp1->x) &= ~collection;
+				if ((filledSudoku->getNote(snp1->y, snp1->x) &= ~collection) == 0) {
+					return FNS_ERROR;
+				}
 			}
 			snp1 = snp1->next;
 		}
@@ -331,7 +387,7 @@ SudokuFilter::FillValueStatus SudokuFilter::fillValue(Sudoku &sudoku, short subs
 				/**
 				 * calculate the value of `lastNum` and `restNoteNumCount`
 				 */
-				for (i3 = i4 = 0, s1 = sudoku.getNote(snp1->y, snp1->x); i3 < side; i3++, s1 >>= 1) {
+				for (i3 = i4 = 0, s1 = filledSudoku->getNote(snp1->y, snp1->x); i3 < side; i3++, s1 >>= 1) {
 					if (s1 & 1) {
 						i4++;
 						lastNum = i3 + 1;
@@ -340,23 +396,17 @@ SudokuFilter::FillValueStatus SudokuFilter::fillValue(Sudoku &sudoku, short subs
 				restNoteNumCount = i4;
 
 				/**
-				 * `restNoteNumCount` = 0 indicates that the block has no note
-				 * -> numbers, means that the block cannot be marked with any
-				 * -> value number and the sudoku is self-contradictory
-				 * 
 				 * `restNoteNumCount` = 1 indicates that the block has only one
 				 * -> note number, means that the note number is the only
 				 * -> possible value number of the block, in this case, 
 				 * -> the block should be marked with the only note number
 				 * -> and removed from the scanner
 				 */
-				if (restNoteNumCount == 0) {
-					return FVS_ERROR;
-				} else if (restNoteNumCount == 1) {
-					if (areaType == i1) {
-						status = FVS_RESET;
+				if (restNoteNumCount == 1 && existCount == 1) {
+					if (scannerAreaType == i1) {
+						status = FNS_RESET;
 					}
-					sudoku.setValue(snp1->y, snp1->x, lastNum);
+					filledSudoku->setValue(snp1->y, snp1->x, lastNum);
 					areaScanner->remove(snp1);
 					continue;
 				}
@@ -375,6 +425,8 @@ SudokuSolution *SudokuFilter::solve(Sudoku &sudoku, Mode mode) {
 	Timer timer;
 	timer.start();
 	SudokuFilter::mode = mode;
+	order = sudoku.getOrder();
+	side = order * order;
 	SudokuSolution *solution = new SudokuSolution;
 	if (sudoku.check()) {
 		filter(sudoku, *solution);
