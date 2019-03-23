@@ -24,17 +24,22 @@ private:
 	static Mode mode;
 	static int order;
 	static int side;
+	static Scanner *scanners[3];
+	static Sudoku *filledSudoku;
+	static Scanner *negativeScanners[3];
+	static Sudoku **negativeSudokus;
 	static FlushNote flushNote;
 	static int elementCount;
 	static int existCountMax;
-	static Scanner *scanners[3];
-	static Sudoku *filledSudoku;
 	static AreaType scannerAreaType;
 	static int scannerAreaPos;
 	static void pushSudokuToSolutionOrDelete(SudokuSolution &solution, Sudoku &sudoku);
+	static void createNegativeSudokus();
+	static void destroyNegativeSudokus();
 	static void filter(Sudoku &sudoku, SudokuSolution &solution);
 	static FlushNoteStatus forEachSubsetInvokeFlush(int subset, int currentPos, int currentExistCount);
 	static FlushNoteStatus flushNotePositivily(short subset);
+	static FlushNoteStatus flushNoteNegativily(short subset);
 public:
 	static SudokuSolution *solve(Sudoku &sudoku, Mode mode = M_ALL);
 };
@@ -89,15 +94,19 @@ int SudokuFilter::order;
 
 int SudokuFilter::side;
 
-SudokuFilter::FlushNote SudokuFilter::flushNote;
+SudokuFilter::Scanner *SudokuFilter::scanners[3] = {};
+
+Sudoku *SudokuFilter::filledSudoku = nullptr;
+
+SudokuFilter::Scanner *SudokuFilter::negativeScanners[3] = {};
+
+Sudoku **SudokuFilter::negativeSudokus = nullptr;
+
+SudokuFilter::FlushNote SudokuFilter::flushNote = nullptr;
 
 int SudokuFilter::elementCount;
 
 int SudokuFilter::existCountMax;
-
-SudokuFilter::Scanner *SudokuFilter::scanners[3] = {};
-
-Sudoku *SudokuFilter::filledSudoku = nullptr;
 
 SudokuFilter::AreaType SudokuFilter::scannerAreaType;
 
@@ -115,27 +124,83 @@ void SudokuFilter::pushSudokuToSolutionOrDelete(SudokuSolution &solution, Sudoku
 	}
 }
 
+void SudokuFilter::createNegativeSudokus() {
+
+	int i1, i2, i3, i4, i5, i6;
+	short s1;
+	ScannerNode *snp1 = nullptr;
+
+	negativeSudokus = new Sudoku *[3]{};
+	for (i1 = 0; i1 < 3; i1++) {
+		negativeSudokus[i1] = new Sudoku(order);
+	}
+
+	for (i1 = 0; i1 < side; i1++) {
+		for (i2 = 0; i2 < side; i2++) {
+			for (i3 = 0, s1 = filledSudoku->getNote(i1, i2); i3 < side; i3++, s1 >>= 1) {
+				if (s1 & 1) {
+					i4 = i1 / order * order + i3 / order;
+					i5 = i2 / order * order + i3 % order;
+					i6 = i1 % order * order + i2 % order;
+					negativeSudokus[AT_ROW]->getNote(i1, i3) |= 1 << i2;
+					negativeSudokus[AT_COLUMN]->getNote(i3, i2) |= 1 << i1;
+					negativeSudokus[AT_SUBGRID]->getNote(i4, i5) |= 1 << i6;
+				}
+			}
+		}
+	}
+
+	// negativeSudokus[0]->write(Sudoku::WM_IMAGE);
+	// negativeSudokus[1]->write(Sudoku::WM_IMAGE);
+	// negativeSudokus[2]->write(Sudoku::WM_IMAGE);
+
+}
+
+void SudokuFilter::destroyNegativeSudokus() {
+	for (int i1 = 0; i1 < 3; i1++) {
+		delete negativeSudokus[i1];
+	}
+	delete[] negativeSudokus;
+	negativeSudokus = nullptr;
+}
+
 void SudokuFilter::filter(Sudoku &sudoku, SudokuSolution &solution) {
 
 	int i1, i2, i3;
 
-	Scanner scannerStorage[3][side];
+	filledSudoku = Sudoku::deepCopyCreate(sudoku);
+	filledSudoku->fillNote();
+	createNegativeSudokus();
+
+	Scanner scannerStorage[3][side], negativeScannerStorage[3][side];
+	for (i1 = 0; i1 < 3; i1++) {
+		scanners[i1] = scannerStorage[i1];
+		negativeScanners[i1] = negativeScannerStorage[i1];
+	}
 	for (i1 = 0; i1 < side; i1++) {
 		for (i2 = 0; i2 < side; i2++) {
 			i3 = i1 / order * order + i2 / order;
 			if (sudoku.getValue(i1, i2) == 0) {
-				scannerStorage[AT_ROW][i1].push(i1, i2);
-				scannerStorage[AT_COLUMN][i2].push(i1, i2);
-				scannerStorage[AT_SUBGRID][i3].push(i1, i2);
+				scanners[AT_ROW][i1].push(i1, i2);
+				scanners[AT_COLUMN][i2].push(i1, i2);
+				scanners[AT_SUBGRID][i3].push(i1, i2);
+			}
+			if (negativeSudokus[AT_ROW]->getNote(i1, i2) != 0) {
+				negativeScanners[AT_ROW][i1].push(i1, i2);
+			}
+			if (negativeSudokus[AT_COLUMN]->getNote(i1, i2) != 0) {
+				negativeScanners[AT_COLUMN][i2].push(i1, i2);
+			}
+			if (negativeSudokus[AT_SUBGRID]->getNote(i1, i2) != 0) {
+				negativeScanners[AT_SUBGRID][i3].push(i1, i2);
 			}
 		}
 	}
-	for (i1 = 0; i1 < 3; i1++) {
-		scanners[i1] = scannerStorage[i1];
-	}
 
-	filledSudoku = Sudoku::deepCopyCreate(sudoku);
-	filledSudoku->fillNote();
+	// printf("r: %i, c: %i, s: %i\n", negativeScanners[AT_ROW][0].getCount(),
+	// 	negativeScanners[AT_COLUMN][0].getCount(), negativeScanners[AT_SUBGRID][0].getCount());
+	// exit(0);
+
 	Sudoku *checkPoint = Sudoku::deepCopyCreate(*filledSudoku);
 	ScannerNode *snPtr = nullptr, *snEnd = nullptr;
 	short subset;
@@ -186,6 +251,7 @@ void SudokuFilter::filter(Sudoku &sudoku, SudokuSolution &solution) {
 		Sudoku::deepCopyAssign(*checkPoint, *filledSudoku);
 	}
 
+	destroyNegativeSudokus();
 	delete checkPoint;
 
 }
@@ -230,28 +296,35 @@ SudokuFilter::FlushNoteStatus SudokuFilter::flushNotePositivily(short subset) {
 	 * collection -> the boolean list designating the existing
 	 * -> note numbers in selected blocks
 	 */
-	int existCount;
+	int existCount = 0;
 	short collection = 0;
 	snp1 = scanner.begin();
-	for (i1 = i2 = 0, s1 = subset; i1 < scanner.getCount(); i1++, s1 >>= 1) {
+	for (i1 = 0, s1 = subset; i1 < scanner.getCount(); i1++, s1 >>= 1) {
 		if (s1 & 1) {
-			i2++;
+			existCount++;
 			collection |= filledSudoku->getNote(snp1->y, snp1->x);
 		}
 		snp1 = snp1->next;
 	}
-	existCount = i2;
 
 	/**
 	 * numCount -> the number of different note numbers in
 	 * -> selected blocks
 	 */
-	for (i1 = 0, i2 = 0, s1 = collection; i1 < side; i1++, s1 >>= 1) {
+	int numCount = 0;
+	for (i1 = 0, s1 = collection; i1 < side; i1++, s1 >>= 1) {
 		if (s1 & 1) {
-			i2++;
+			numCount++;
 		}
 	}
-	int numCount = i2;
+
+	/**
+	 * flush note numbers of unselected blocks when `existCount`
+	 * -> = `numCount`
+	 */
+	if (existCount != numCount) {
+		return FNS_CONTINUE;
+	}
 	
 	/**
 	 * existBlockList -> the array of pointers pointing to
@@ -266,14 +339,6 @@ SudokuFilter::FlushNoteStatus SudokuFilter::flushNotePositivily(short subset) {
 			i2++;
 		}
 		snp1 = snp1->next;
-	}
-
-	/**
-	 * flush note numbers of unselected blocks when `existCount`
-	 * -> = `numCount`
-	 */
-	if (existCount != numCount) {
-		return FNS_CONTINUE;
 	}
 
 	/**
@@ -418,6 +483,12 @@ SudokuFilter::FlushNoteStatus SudokuFilter::flushNotePositivily(short subset) {
 	}
 
 	return status;
+
+}
+
+SudokuFilter::FlushNoteStatus SudokuFilter::flushNoteNegativily(short subset) {
+
+
 
 }
 
