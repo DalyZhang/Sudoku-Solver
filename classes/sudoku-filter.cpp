@@ -2,7 +2,7 @@ class SudokuFilter : public SudokuSolver {
 public:
 	enum AreaType {AT_ROW, AT_COLUMN, AT_SUBGRID};
 	enum FlushNoteStatus {FNS_CONTINUE, FNS_ERROR, FNS_RESET};
-	struct FlushNoteConfiguration {
+	struct FlushNoteConfig {
 		bool isPositive;
 		int strength;	
 	};
@@ -29,7 +29,7 @@ private:
 	static int order;
 	static int side;
 	static int flushNoteConfigCount;
-	static FlushNoteConfiguration *flushNoteConfigs;
+	static FlushNoteConfig *flushNoteConfigs;
 	static Scanner *scanners[3];
 	static Sudoku *filledSudoku;
 	static int elementCount;
@@ -46,8 +46,8 @@ private:
 	static FlushNoteStatus forEachSubsetInvokeFlush(int subset, int currentPos, int currentExistCount);
 	static FlushNoteStatus flushNote(short subset);
 public:
-	static SudokuSolution *solve(Sudoku &sudoku, Mode mode = M_ALL);
-	static SudokuSolution *solve(Sudoku &sudoku, Mode mode, int configCount, FlushNoteConfiguration *configs);
+	static SudokuSolution *solve(Sudoku &sudoku, Mode mode = M_NORMAL);
+	static SudokuSolution *solve(Sudoku &sudoku, Mode mode, int configCount, FlushNoteConfig *configs);
 };
 
 SudokuFilter::Scanner::Scanner() {
@@ -102,7 +102,7 @@ int SudokuFilter::side;
 
 int SudokuFilter::flushNoteConfigCount;
 
-SudokuFilter::FlushNoteConfiguration *SudokuFilter::flushNoteConfigs = nullptr;
+SudokuFilter::FlushNoteConfig *SudokuFilter::flushNoteConfigs = nullptr;
 
 SudokuFilter::Scanner *SudokuFilter::scanners[3] = {};
 
@@ -124,10 +124,10 @@ short SudokuFilter::negativeValueExists;
 
 void SudokuFilter::pushSudokuToSolutionOrDelete(SudokuSolution &solution, Sudoku &sudoku) {
 	switch (mode) {
-	case M_ALL: case M_FIRST:
+	case M_NORMAL:
 		solution.push(&sudoku);
 		break;
-	case M_COUNT_ALL: case M_COUNT_FIRST:
+	case M_COUNT_ONLY:
 		delete &sudoku;
 		solution.pseudoCount++;
 		break;
@@ -560,11 +560,11 @@ SudokuFilter::FlushNoteStatus SudokuFilter::flushNote(short subset) {
 }
 
 SudokuSolution *SudokuFilter::solve(Sudoku &sudoku, Mode mode) {
-	FlushNoteConfiguration configs[] = {{true, 1}, {false, 1}};
+	static FlushNoteConfig configs[] = {{true, -1}};
 	return solve(sudoku, mode, sizeof (configs) / sizeof (configs[0]), configs);
 }
 
-SudokuSolution *SudokuFilter::solve(Sudoku &sudoku, Mode mode, int configCount, FlushNoteConfiguration *configs) {
+SudokuSolution *SudokuFilter::solve(Sudoku &sudoku, Mode mode, int configCount, FlushNoteConfig *configs) {
 	Timer timer;
 	timer.start();
 	flushNoteConfigCount = configCount;

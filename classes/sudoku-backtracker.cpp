@@ -1,15 +1,20 @@
 class SudokuBacktracker : public SudokuSolver {
 public:
-	typedef SudokuSolution *(*Filter)(Sudoku &, Mode);
+	typedef SudokuSolution *(*Filter)(Sudoku &, Mode, int, SudokuFilter::FlushNoteConfig *);
 private:
 	static int side;
 	static int sideSquare;
 	static Mode mode;
+	static int solutionCountMax;
 	static Filter filter;
+	static int filterConfigCount;
+	static SudokuFilter::FlushNoteConfig *filterConfigs;
 	static void copyAndPushSudokuToSolution(SudokuSolution &solution, Sudoku &sudoku);
 	static void backtrack(Sudoku *sudoku, SudokuSolution &solution, int blockOffset);
 public:
-	static SudokuSolution *solve(Sudoku &sudoku, Mode mode = M_ALL, Filter filter = nullptr);
+	static SudokuSolution *solve(Sudoku &sudoku, Mode mode = M_NORMAL, int solutionCountMax = -1, Filter filter = nullptr);
+	static SudokuSolution *solve(Sudoku &sudoku, Mode mode, int solutionCountMax, Filter filter,
+		int configCount, SudokuFilter::FlushNoteConfig *configs);
 };
 
 int SudokuBacktracker::side;
@@ -18,14 +23,20 @@ int SudokuBacktracker::sideSquare;
 
 SudokuBacktracker::Mode SudokuBacktracker::mode;
 
+int SudokuBacktracker::solutionCountMax;
+
 SudokuBacktracker::Filter SudokuBacktracker::filter;
+
+int SudokuBacktracker::filterConfigCount;
+
+SudokuFilter::FlushNoteConfig *SudokuBacktracker::filterConfigs = nullptr;
 
 void SudokuBacktracker::copyAndPushSudokuToSolution(SudokuSolution &solution, Sudoku &sudoku) {
 	switch (mode) {
-	case M_ALL: case M_FIRST:
+	case M_NORMAL:
 		solution.push(Sudoku::deepCopyCreate(sudoku));
 		break;
-	case M_COUNT_ALL: case M_COUNT_FIRST:
+	case M_COUNT_ONLY:
 		solution.pseudoCount++;
 		break;
 	}
@@ -37,12 +48,11 @@ void SudokuBacktracker::backtrack(Sudoku *sudoku, SudokuSolution &solution, int 
 	SudokuSolution *filterSolution = nullptr;
 	if (filter != nullptr) {
 		bool toBacktrack;
-		filterSolution = filter(*sudoku, M_ALL);
+		filterSolution = filter(*sudoku, M_NORMAL, filterConfigCount, filterConfigs);
 		switch (filterSolution->status) {
 		case SudokuSolution::S_SUCCESS:
 			solution.status = SudokuSolution::S_SUCCESS;
 			copyAndPushSudokuToSolution(solution, **filterSolution->begin());
-			// solution.push(Sudoku::deepCopyCreate(**filterSolution->begin()));
 			toBacktrack = false;
 			break;
 		case SudokuSolution::S_ERROR:
@@ -73,7 +83,8 @@ void SudokuBacktracker::backtrack(Sudoku *sudoku, SudokuSolution &solution, int 
 			if (sudoku->checkBlock(i2, i3, i4)) {
 				sudoku->setValue(i2, i3, i4);
 				backtrack(sudoku, solution, i1 + 1);
-				if ((mode == M_FIRST || mode == M_COUNT_FIRST) && solution.status == SudokuSolution::S_SUCCESS) {
+				if (solution.status == SudokuSolution::S_SUCCESS && solutionCountMax != -1
+					&& solution.getCount() >= solutionCountMax) {
 					break;
 				}
 			}
@@ -95,14 +106,23 @@ void SudokuBacktracker::backtrack(Sudoku *sudoku, SudokuSolution &solution, int 
 
 }
 
-SudokuSolution *SudokuBacktracker::solve(Sudoku &sudoku, Mode mode, Filter filter) {
+SudokuSolution *SudokuBacktracker::solve(Sudoku &sudoku, Mode mode, int solutionCountMax, Filter filter) {
+	static SudokuFilter::FlushNoteConfig configs[] = {{false, 1}};
+	return solve(sudoku, mode, solutionCountMax, filter, sizeof (configs) / sizeof (configs[0]), configs);
+}
+
+SudokuSolution *SudokuBacktracker::solve(Sudoku &sudoku, Mode mode, int solutionCountMax, Filter filter,
+	int configCount, SudokuFilter::FlushNoteConfig *configs) {
 	Timer timer;
 	timer.start();
 	int order = sudoku.getOrder();
 	side = order * order;
 	sideSquare = side * side;
 	SudokuBacktracker::mode = mode;
+	SudokuBacktracker::solutionCountMax = solutionCountMax > 0 ? solutionCountMax : -1;
 	SudokuBacktracker::filter = filter;
+	filterConfigCount = configCount;
+	filterConfigs = configs;
 	SudokuSolution *solution = new SudokuSolution;
 	if (sudoku.check()) {
 		backtrack(&sudoku, *solution, 0);
