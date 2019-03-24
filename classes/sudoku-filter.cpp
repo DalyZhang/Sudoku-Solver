@@ -2,9 +2,14 @@ class SudokuFilter : public SudokuSolver {
 public:
 	enum AreaType {AT_ROW, AT_COLUMN, AT_SUBGRID};
 	enum FlushNoteStatus {FNS_CONTINUE, FNS_ERROR, FNS_RESET};
+	struct FlushNoteConfiguration {
+		bool isPositive;
+		int strength;	
+	};
 private:
 	struct ScannerNode {
 		int y, x;
+		int blockPos;
 		ScannerNode *prev = nullptr, *next = nullptr;
 	};
 	class Scanner {
@@ -14,39 +19,40 @@ private:
 	public:
 		Scanner();
 		~Scanner();
-		void push(int y, int x);
+		void push(int y, int x, int blockPos);
 		bool remove(ScannerNode *&node);
 		ScannerNode *begin();
 		ScannerNode *end();
 		int getCount() const;
 	};
-	typedef FlushNoteStatus (*FlushNote)(short);
 	static Mode mode;
 	static int order;
 	static int side;
+	static int flushNoteConfigCount;
+	static FlushNoteConfiguration *flushNoteConfigs;
 	static Scanner *scanners[3];
 	static Sudoku *filledSudoku;
-	static Scanner *negativeScanners[3];
-	static Sudoku **negativeSudokus;
-	static FlushNote flushNote;
 	static int elementCount;
 	static int existCountMax;
 	static AreaType scannerAreaType;
 	static int scannerAreaPos;
+	static bool isPositiveFlush;
+	static short *negativeNotes;
+	static short negativeValueExists;
 	static void pushSudokuToSolutionOrDelete(SudokuSolution &solution, Sudoku &sudoku);
-	static void createNegativeSudokus();
-	static void destroyNegativeSudokus();
 	static void filter(Sudoku &sudoku, SudokuSolution &solution);
+	static FlushNoteStatus startFlush(AreaType areaType, int areaPos, bool isPositive = true);
+	static FlushNoteStatus startFlush(AreaType areaType, int areaPos, bool isPositive, int strength);
 	static FlushNoteStatus forEachSubsetInvokeFlush(int subset, int currentPos, int currentExistCount);
-	static FlushNoteStatus flushNotePositivily(short subset);
-	static FlushNoteStatus flushNoteNegativily(short subset);
+	static FlushNoteStatus flushNote(short subset);
 public:
 	static SudokuSolution *solve(Sudoku &sudoku, Mode mode = M_ALL);
+	static SudokuSolution *solve(Sudoku &sudoku, Mode mode, int configCount, FlushNoteConfiguration *configs);
 };
 
 SudokuFilter::Scanner::Scanner() {
 	count = 0;
-	sentinel = {0, 0, &sentinel, &sentinel};
+	sentinel = {0, 0, 0, &sentinel, &sentinel};
 }
 
 SudokuFilter::Scanner::~Scanner() {
@@ -57,9 +63,9 @@ SudokuFilter::Scanner::~Scanner() {
 	}
 }
 
-void SudokuFilter::Scanner::push(int y, int x) {
+void SudokuFilter::Scanner::push(int y, int x, int blockPos) {
 	sentinel.prev = sentinel.prev->next
-		= new ScannerNode{y, x, sentinel.prev, &sentinel};
+		= new ScannerNode{y, x, blockPos, sentinel.prev, &sentinel};
 	count++;
 }
 
@@ -94,15 +100,13 @@ int SudokuFilter::order;
 
 int SudokuFilter::side;
 
+int SudokuFilter::flushNoteConfigCount;
+
+SudokuFilter::FlushNoteConfiguration *SudokuFilter::flushNoteConfigs = nullptr;
+
 SudokuFilter::Scanner *SudokuFilter::scanners[3] = {};
 
 Sudoku *SudokuFilter::filledSudoku = nullptr;
-
-SudokuFilter::Scanner *SudokuFilter::negativeScanners[3] = {};
-
-Sudoku **SudokuFilter::negativeSudokus = nullptr;
-
-SudokuFilter::FlushNote SudokuFilter::flushNote = nullptr;
 
 int SudokuFilter::elementCount;
 
@@ -111,6 +115,12 @@ int SudokuFilter::existCountMax;
 SudokuFilter::AreaType SudokuFilter::scannerAreaType;
 
 int SudokuFilter::scannerAreaPos;
+
+bool SudokuFilter::isPositiveFlush;
+
+short *SudokuFilter::negativeNotes = nullptr;
+
+short SudokuFilter::negativeValueExists;
 
 void SudokuFilter::pushSudokuToSolutionOrDelete(SudokuSolution &solution, Sudoku &sudoku) {
 	switch (mode) {
@@ -124,104 +134,50 @@ void SudokuFilter::pushSudokuToSolutionOrDelete(SudokuSolution &solution, Sudoku
 	}
 }
 
-void SudokuFilter::createNegativeSudokus() {
-
-	int i1, i2, i3, i4, i5, i6;
-	short s1;
-	ScannerNode *snp1 = nullptr;
-
-	negativeSudokus = new Sudoku *[3]{};
-	for (i1 = 0; i1 < 3; i1++) {
-		negativeSudokus[i1] = new Sudoku(order);
-	}
-
-	for (i1 = 0; i1 < side; i1++) {
-		for (i2 = 0; i2 < side; i2++) {
-			for (i3 = 0, s1 = filledSudoku->getNote(i1, i2); i3 < side; i3++, s1 >>= 1) {
-				if (s1 & 1) {
-					i4 = i1 / order * order + i3 / order;
-					i5 = i2 / order * order + i3 % order;
-					i6 = i1 % order * order + i2 % order;
-					negativeSudokus[AT_ROW]->getNote(i1, i3) |= 1 << i2;
-					negativeSudokus[AT_COLUMN]->getNote(i3, i2) |= 1 << i1;
-					negativeSudokus[AT_SUBGRID]->getNote(i4, i5) |= 1 << i6;
-				}
-			}
-		}
-	}
-
-	// negativeSudokus[0]->write(Sudoku::WM_IMAGE);
-	// negativeSudokus[1]->write(Sudoku::WM_IMAGE);
-	// negativeSudokus[2]->write(Sudoku::WM_IMAGE);
-
-}
-
-void SudokuFilter::destroyNegativeSudokus() {
-	for (int i1 = 0; i1 < 3; i1++) {
-		delete negativeSudokus[i1];
-	}
-	delete[] negativeSudokus;
-	negativeSudokus = nullptr;
-}
-
 void SudokuFilter::filter(Sudoku &sudoku, SudokuSolution &solution) {
 
 	int i1, i2, i3;
 
 	filledSudoku = Sudoku::deepCopyCreate(sudoku);
 	filledSudoku->fillNote();
-	createNegativeSudokus();
 
-	Scanner scannerStorage[3][side], negativeScannerStorage[3][side];
+	Scanner scannerStorage[3][side];
 	for (i1 = 0; i1 < 3; i1++) {
 		scanners[i1] = scannerStorage[i1];
-		negativeScanners[i1] = negativeScannerStorage[i1];
 	}
 	for (i1 = 0; i1 < side; i1++) {
 		for (i2 = 0; i2 < side; i2++) {
-			i3 = i1 / order * order + i2 / order;
 			if (sudoku.getValue(i1, i2) == 0) {
-				scanners[AT_ROW][i1].push(i1, i2);
-				scanners[AT_COLUMN][i2].push(i1, i2);
-				scanners[AT_SUBGRID][i3].push(i1, i2);
-			}
-			if (negativeSudokus[AT_ROW]->getNote(i1, i2) != 0) {
-				negativeScanners[AT_ROW][i1].push(i1, i2);
-			}
-			if (negativeSudokus[AT_COLUMN]->getNote(i1, i2) != 0) {
-				negativeScanners[AT_COLUMN][i2].push(i1, i2);
-			}
-			if (negativeSudokus[AT_SUBGRID]->getNote(i1, i2) != 0) {
-				negativeScanners[AT_SUBGRID][i3].push(i1, i2);
+				scanners[AT_ROW][i1].push(i1, i2, i2);
+				scanners[AT_COLUMN][i2].push(i1, i2, i1);
+				scanners[AT_SUBGRID][i1 / order * order + i2 / order].push(i1, i2, i1 % order * order + i2 % order);
 			}
 		}
 	}
 
-	// printf("r: %i, c: %i, s: %i\n", negativeScanners[AT_ROW][0].getCount(),
-	// 	negativeScanners[AT_COLUMN][0].getCount(), negativeScanners[AT_SUBGRID][0].getCount());
-	// exit(0);
-
 	Sudoku *checkPoint = Sudoku::deepCopyCreate(*filledSudoku);
 	ScannerNode *snPtr = nullptr, *snEnd = nullptr;
-	short subset;
 	FlushNoteStatus flushNoteStatus;
 	bool finished, error = false;
+	negativeNotes = new short[side]{};
 	while (true) {
 		for (i1 = 0; i1 < 3 && !error; i1++) {
-			for (i2 = 0; i2 < side; i2++) {
-				elementCount = scanners[i1][i2].getCount();
-				existCountMax = elementCount;
-				scannerAreaType = (AreaType)i1;
-				scannerAreaPos = i2;
-				flushNote = flushNotePositivily;
-				flushNoteStatus = forEachSubsetInvokeFlush(0, 0, 0);
-				if (flushNoteStatus == FNS_RESET) {
-					i2--;
-					continue;
-				}
-				if (flushNoteStatus == FNS_ERROR) {
-					error = true;
-					break;
+			for (i2 = 0; i2 < side && !error; i2++) {
+				for (i3 = 0; i3 < flushNoteConfigCount; i3++) {
+					if (flushNoteConfigs[i3].strength == -1) {
+						flushNoteStatus = startFlush((AreaType)i1, i2, flushNoteConfigs[i3].isPositive);
+					} else {
+						flushNoteStatus = startFlush((AreaType)i1, i2, flushNoteConfigs[i3].isPositive,
+							flushNoteConfigs[i3].strength);
+					}
+					if (flushNoteStatus == FNS_RESET) {
+						i2--;
+						break;
+					}
+					if (flushNoteStatus == FNS_ERROR) {
+						error = true;
+						break;
+					}
 				}
 			}
 		}
@@ -251,12 +207,75 @@ void SudokuFilter::filter(Sudoku &sudoku, SudokuSolution &solution) {
 		Sudoku::deepCopyAssign(*checkPoint, *filledSudoku);
 	}
 
-	destroyNegativeSudokus();
 	delete checkPoint;
+	delete[] negativeNotes;
+	checkPoint = nullptr;
+	negativeNotes = nullptr;
+
+}
+
+SudokuFilter::FlushNoteStatus SudokuFilter::startFlush(AreaType areaType, int areaPos, bool isPositive) {
+	return startFlush(areaType, areaPos, isPositive, scanners[areaType][areaPos].getCount());
+}
+
+SudokuFilter::FlushNoteStatus SudokuFilter::startFlush(AreaType areaType, int areaPos, bool isPositive, int strength) {
+	
+	if (strength <= 0) {
+		return FNS_CONTINUE;
+	}
+
+	Scanner &scanner = scanners[areaType][areaPos];
+	elementCount = scanner.getCount();
+	existCountMax = strength > elementCount ? elementCount : strength;
+	scannerAreaType = areaType;
+	scannerAreaPos = areaPos;
+	isPositiveFlush = isPositive;
+
+	if (!isPositive) {
+
+		ScannerNode *snp1 = nullptr;
+		short s1;
+		int i1, i2, i3;
+
+		memset(negativeNotes, 0, sizeof (negativeNotes[0]) * side);
+		negativeValueExists = 0;
+		for (i1 = 0; i1 < side; i1++) {
+			switch (areaType) {
+			case AT_ROW:
+				i2 = areaPos;
+				i3 = i1;
+				break;
+			case AT_COLUMN:
+				i2 = i1;
+				i3 = areaPos;
+				break;
+			case AT_SUBGRID:
+				i2 = areaPos / 3 * 3 + i1 / 3;
+				i3 = areaPos % 3 * 3 + i1 % 3;
+				break;
+			}
+			negativeValueExists |= 1 << (filledSudoku->getValue(i2, i3) - 1);
+		}
+
+		for (snp1 = scanner.begin(); snp1 != scanner.end(); snp1 = snp1->next) {
+			for (i1 = 0, s1 = filledSudoku->getNote(snp1->y, snp1->x); i1 < side; i1++, s1 >>= 1) {
+				if (s1 & 1) {
+					negativeNotes[i1] |= 1 << snp1->blockPos;
+				}
+			}
+		}
+
+	}
+
+	return forEachSubsetInvokeFlush(0, 0, 0);
 
 }
 
 SudokuFilter::FlushNoteStatus SudokuFilter::forEachSubsetInvokeFlush(int subset, int currentPos, int currentExistCount) {
+
+	if (currentExistCount >= existCountMax) {
+		return FNS_CONTINUE;
+	}
 
 	FlushNoteStatus flushNoteStatus;
 	short newSubset;
@@ -269,11 +288,9 @@ SudokuFilter::FlushNoteStatus SudokuFilter::forEachSubsetInvokeFlush(int subset,
 				return flushNoteStatus;
 			}
 		}
-		if (currentExistCount + 1 < existCountMax) {
-			flushNoteStatus = forEachSubsetInvokeFlush(newSubset, currentPos + 1, currentExistCount + 1);
-			if (flushNoteStatus != FNS_CONTINUE) {
-				return flushNoteStatus;
-			}
+		flushNoteStatus = forEachSubsetInvokeFlush(newSubset, currentPos + 1, currentExistCount + 1);
+		if (flushNoteStatus != FNS_CONTINUE) {
+			return flushNoteStatus;
 		}
 		currentPos++;
 	}
@@ -282,197 +299,253 @@ SudokuFilter::FlushNoteStatus SudokuFilter::forEachSubsetInvokeFlush(int subset,
 
 }
 
-SudokuFilter::FlushNoteStatus SudokuFilter::flushNotePositivily(short subset) {
+SudokuFilter::FlushNoteStatus SudokuFilter::flushNote(short subset) {
 
 	int i1, i2, i3, i4;
 	short s1;
 	ScannerNode *snp1 = nullptr;
 
+	/**
+	 * The current scanner specified by `scannerAreaType` and
+	 * `scannerAreaPos`.
+	 */
 	Scanner &scanner = scanners[scannerAreaType][scannerAreaPos];
 
 	/**
-	 * existCount -> the number of blocks selected by `subset`
-	 * 
-	 * collection -> the boolean list designating the existing
-	 * -> note numbers in selected blocks
+	 * The boolean list designating the positions of selected blocks
+	 * in the area of the current scanner.
 	 */
-	int existCount = 0;
-	short collection = 0;
-	snp1 = scanner.begin();
-	for (i1 = 0, s1 = subset; i1 < scanner.getCount(); i1++, s1 >>= 1) {
-		if (s1 & 1) {
-			existCount++;
-			collection |= filledSudoku->getNote(snp1->y, snp1->x);
+	short posCollection;
+
+	/**
+	 * The boolean list designating the existing note numbers in
+	 * selected blocks.
+	 */
+	short numCollection;
+
+	/**
+	 * The number of blocks selected by `posCollection` in the area
+	 * of the current scanner.
+	 */
+	int posCount;
+
+	/**
+	 * The number of different note numbers in selected blocks.
+	 */
+	int numCount;
+
+	if (!isPositiveFlush) {
+		posCollection = numCollection = 0;
+		numCount = 0;
+		for (i1 = 0, s1 = subset; i1 < side; i1++) {
+			if (!(negativeValueExists & (1 << i1))) {
+				if (s1 & 1) {
+					posCollection |= negativeNotes[i1];
+					numCollection |= 1 << i1;
+					numCount++;
+				}
+				s1 >>= 1;
+			}
 		}
-		snp1 = snp1->next;
+		posCount = 0;
+		for (i1 = 0, s1 = posCollection; i1 < side; i1++, s1 >>= 1) {
+			if (s1 & 1) {
+				posCount++;
+			}
+		}
+	} else {
+		posCount = 0;
+		posCollection = numCollection = 0;
+		for (snp1 = scanner.begin(), s1 = subset; snp1 != scanner.end(); s1 >>= 1, snp1 = snp1->next) {
+			if (s1 & 1) {
+				posCount++;
+				posCollection |= 1 << snp1->blockPos;
+				numCollection |= filledSudoku->getNote(snp1->y, snp1->x);
+			}
+		}
+		numCount = 0;
+		for (i1 = 0, s1 = numCollection; i1 < side; i1++, s1 >>= 1) {
+			if (s1 & 1) {
+				numCount++;
+			}
+		}
 	}
 
 	/**
-	 * numCount -> the number of different note numbers in
-	 * -> selected blocks
+	 * Flush note numbers of unselected blocks when `posCount` =
+	 * `numCount`.
 	 */
-	int numCount = 0;
-	for (i1 = 0, s1 = collection; i1 < side; i1++, s1 >>= 1) {
-		if (s1 & 1) {
-			numCount++;
-		}
-	}
-
-	/**
-	 * flush note numbers of unselected blocks when `existCount`
-	 * -> = `numCount`
-	 */
-	if (existCount != numCount) {
+	if (posCount != numCount) {
 		return FNS_CONTINUE;
 	}
 	
 	/**
-	 * existBlockList -> the array of pointers pointing to
-	 * -> selected blocks
+	 * In case of negative flush mode, the selected blocks need
+	 * flushing.
 	 */
-	int existBlockList[existCount][2];
-	snp1 = scanner.begin();
-	for (i1 = i2 = 0, s1 = subset; i1 < scanner.getCount(); i1++, s1 >>= 1) {
-		if (s1 & 1) {
+	if (!isPositiveFlush) {
+		for (i1 = 0; i1 < side; i1++) {
+			if (negativeNotes[i1] != 0 && !((1 << i1) & numCollection)) {
+				if ((negativeNotes[i1] &= ~posCollection) == 0) {
+					return FNS_ERROR;
+				}
+			}
+		}
+		for (snp1 = scanner.begin(); snp1 != scanner.end(); snp1 = snp1->next) {
+			if (posCollection & (1 << snp1->blockPos)) {
+				filledSudoku->getNote(snp1->y, snp1->x) &= numCollection;
+			}
+		}
+	}
+	
+	/**
+	 * The array of coordinates of selected blocks.
+	 */
+	int existBlockList[posCount][2];
+	for (snp1 = scanner.begin(), i2 = 0; snp1 != scanner.end(); snp1 = snp1->next) {
+		if (posCollection & (1 << snp1->blockPos)) {
 			existBlockList[i2][0] = snp1->y;
 			existBlockList[i2][1] = snp1->x;
 			i2++;
 		}
-		snp1 = snp1->next;
 	}
 
 	/**
-	 * sameArea -> the array of boolean vars which designating if
-	 * -> all selected blocks are in the same row, column, subgrid
+	 * The array of boolean vars which designating if all selected
+	 * blocks are in the same row, column, subgrid.
 	 */
 	bool sameArea[3] = {true, true, true};
+
+	/**
+	 * The array of positions of the same area of each types.
+	 */
 	int sameAreaPos[3] = {-1, -1, -1};
-	snp1 = scanner.begin();
-	for (i1 = 0, s1 = subset; i1 < scanner.getCount(); i1++, s1 >>= 1) {
-		if (s1 & 1) {
+
+	for (snp1 = scanner.begin(); snp1 != scanner.end(); snp1 = snp1->next) {
+		if (posCollection & (1 << snp1->blockPos)) {
 			if (sameAreaPos[AT_ROW] != -1 && sameAreaPos[AT_ROW] != snp1->y) {
 				sameArea[AT_ROW] = false;
 			}
 			if (sameAreaPos[AT_COLUMN] != -1 && sameAreaPos[AT_COLUMN] != snp1->x) {
 				sameArea[AT_COLUMN] = false;
 			}
-			i2 = snp1->y / order * order + snp1->x / order;
-			if (sameAreaPos[AT_SUBGRID] != -1 && sameAreaPos[AT_SUBGRID] != i2) {
+			i1 = snp1->y / order * order + snp1->x / order;
+			if (sameAreaPos[AT_SUBGRID] != -1 && sameAreaPos[AT_SUBGRID] != i1) {
 				sameArea[AT_SUBGRID] = false;
 			}
 			sameAreaPos[AT_ROW] = snp1->y;
 			sameAreaPos[AT_COLUMN] = snp1->x;
-			sameAreaPos[AT_SUBGRID] = i2;
+			sameAreaPos[AT_SUBGRID] = i1;
 		}
-		snp1 = snp1->next;
 	}
 
 	/**
-	 * flush note numbers of unselected blocks
-	 * 
-	 * areaScanner -> the list where note numbers should be flushed
-	 * 
-	 * restNoteNumCount -> the var temporarily storing the number of note
-	 * -> numbers in a flushed block
-	 * 
-	 * lastNum -> the var temporarily recording one of the note number
-	 * -> in a flushed block, it is specially the last one due to the
-	 * -> implementation
-	 * 
-	 * areaSubset -> the boolean list designating where selected blocks
-	 * -> exist in the `areaScanner`
-	 * 
-	 * status -> the var temporarily storing the flush status
+	 * The scanner in the specified area.
 	 */
-	Scanner *areaScanner = nullptr;
+	Scanner *localScanner = nullptr;
+
+	/**
+	 * The var temporarily storing the number of note numbers in a
+	 * flushed block.
+	 */
 	int restNoteNumCount;
+	
+	/**
+	 * The var temporarily recording one of the note number in a flushed
+	 * block. It is specially the last one due to the implementation.
+	 */
 	int lastNum;
-	short areaSubset;
+	
+	/**
+	 * The boolean list designating the positions of selected blocks exist
+	 * in the area of `localScanner`
+	 */
+	short localPosCollection;
+		
+	/**
+	 * The var temporarily storing the flush status.
+	 */
 	FlushNoteStatus status = FNS_CONTINUE;
+
+	/**
+	 * Flush note numbers of unselected blocks.
+	 */
 	for (i1 = 0; i1 < 3; i1++) {
 
 		/**
-		 * start flushing when all selected blocks are in the same
-		 * -> row, column, subgrid
+		 * Start flushing when all selected blocks are in the same
+		 * row, column, subgrid.
 		 */
 		if (!sameArea[i1]) {
 			continue;
 		}
 
 		/**
-		 * indicate the flushed list by one of the selected blocks
+		 * Specify the area of the scanner.
 		 */
-		areaScanner = &scanners[i1][sameAreaPos[i1]];
+		localScanner = &scanners[i1][sameAreaPos[i1]];
 
 		/**
-		 * calculate the value of `areaSubset`
+		 * Calculate the value of `localPosCollection`.
 		 */
 		if (scannerAreaType == i1) {
-			areaSubset = subset;
+			localPosCollection = posCollection;
 		} else {
-			areaSubset = 0;
-			snp1 = areaScanner->begin();
-			for (i2 = 0; i2 < areaScanner->getCount(); i2++) {
-				for (i3 = 0; i3 < existCount; i3++) {
-					if (snp1->y == existBlockList[i3][0] && snp1->x == existBlockList[i3][1]) {
-						areaSubset |= 1 << i2;
+			localPosCollection = 0;
+			for (snp1 = localScanner->begin(); snp1 != localScanner->end(); snp1 = snp1->next) {
+				for (i2 = 0; i2 < posCount; i2++) {
+					if (snp1->y == existBlockList[i2][0] && snp1->x == existBlockList[i2][1]) {
+						localPosCollection |= 1 << snp1->blockPos;
 						break;
 					}
 				}
-				snp1 = snp1->next;
 			}
 		}
 
 		/**
-		 * start flushing on the unselected blocks, delete note
-		 * -> numbers existing in the collection
-		 * 
-		 * if a block has no note numbers after flushing, it
-		 * -> cannot be marked with any value number and the sudoku
-		 * -> is self-contradictory
+		 * Start flushing on the unselected blocks, delete note
+		 * numbers existing in the numCollection. If a block has no
+		 * note numbers after flushing, it cannot be marked with any
+		 * value number and the sudoku is self-contradictory.
 		 */
-		snp1 = areaScanner->begin();
-		for (i2 = 0; i2 < areaScanner->getCount(); i2++) {
-			if (!(areaSubset & (1 << i2))) {
-				if ((filledSudoku->getNote(snp1->y, snp1->x) &= ~collection) == 0) {
+		for (snp1 = localScanner->begin(); snp1 != localScanner->end(); snp1 = snp1->next) {
+			if (!(localPosCollection & (1 << snp1->blockPos))) {
+				if ((filledSudoku->getNote(snp1->y, snp1->x) &= ~numCollection) == 0) {
 					return FNS_ERROR;
 				}
 			}
-			snp1 = snp1->next;
-		}
-		
-		/**
-		 * remove and mark the specific blocks
-		 */
-		snp1 = areaScanner->begin();
-		for (i2 = 0; snp1 != areaScanner->end(); i2++, snp1 = snp1->next) {
 
-			if (areaSubset & (1 << i2)) {
+		}
+
+		/**
+		 * Remove and mark the specific blocks.
+		 */
+		for (snp1 = localScanner->begin(); snp1 != localScanner->end(); snp1 = snp1->next) {
+
+			if (localPosCollection & (1 << snp1->blockPos)) {
 
 				/**
-				 * calculate the value of `lastNum` and `restNoteNumCount`
+				 * Calculate the value of `lastNum` and `restNoteNumCount`.
 				 */
-				for (i3 = i4 = 0, s1 = filledSudoku->getNote(snp1->y, snp1->x); i3 < side; i3++, s1 >>= 1) {
+				for (i2 = i3 = 0, s1 = filledSudoku->getNote(snp1->y, snp1->x); i2 < side; i2++, s1 >>= 1) {
 					if (s1 & 1) {
-						i4++;
-						lastNum = i3 + 1;
+						i3++;
+						lastNum = i2 + 1;
 					}
 				}
-				restNoteNumCount = i4;
+				restNoteNumCount = i3;
 
 				/**
 				 * `restNoteNumCount` = 1 indicates that the block has only one
-				 * -> note number, means that the note number is the only
-				 * -> possible value number of the block, in this case, 
-				 * -> the block should be marked with the only note number
-				 * -> and removed from the scanner
+				 * note number, means that the note number is the only
+				 * possible value number of the block. In this case, 
+				 * the block should be marked with the only note number
+				 * and removed from the scanner.
 				 */
-				if (restNoteNumCount == 1 && existCount == 1) {
-					if (scannerAreaType == i1) {
-						status = FNS_RESET;
-					}
+				if (restNoteNumCount == 1 && posCount == 1) {
+					status = FNS_RESET;
 					filledSudoku->setValue(snp1->y, snp1->x, lastNum);
-					areaScanner->remove(snp1);
+					localScanner->remove(snp1);
 					continue;
 				}
 
@@ -486,15 +559,16 @@ SudokuFilter::FlushNoteStatus SudokuFilter::flushNotePositivily(short subset) {
 
 }
 
-SudokuFilter::FlushNoteStatus SudokuFilter::flushNoteNegativily(short subset) {
-
-
-
+SudokuSolution *SudokuFilter::solve(Sudoku &sudoku, Mode mode) {
+	FlushNoteConfiguration configs[] = {{true, 1}, {false, 1}};
+	return solve(sudoku, mode, sizeof (configs) / sizeof (configs[0]), configs);
 }
 
-SudokuSolution *SudokuFilter::solve(Sudoku &sudoku, Mode mode) {
+SudokuSolution *SudokuFilter::solve(Sudoku &sudoku, Mode mode, int configCount, FlushNoteConfiguration *configs) {
 	Timer timer;
 	timer.start();
+	flushNoteConfigCount = configCount;
+	flushNoteConfigs = configs;
 	SudokuFilter::mode = mode;
 	order = sudoku.getOrder();
 	side = order * order;
