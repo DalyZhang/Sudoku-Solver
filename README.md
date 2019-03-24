@@ -4,6 +4,11 @@
 $ g++ main.cpp -o sudoku
 ```
 ## Usage
+### Solver
 ```shell
-$ ./sudoku <sudoku.txt >output-result.txt
+$ ./sudoku [solver] <sudoku.txt >solver-result.txt
+```
+### Difficulty Judge
+```shell
+$ ./sudoku judge <sudoku.txt >judge-result.txt
 ```

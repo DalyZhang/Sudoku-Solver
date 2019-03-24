@@ -37,7 +37,7 @@ int Sudoku::characterToValue(char character) {
 	if (table == nullptr) {
 		int i1, i2;
 		const char *lists[] = SUDOKU_CHAR_LISTS;
-		int listCount = sizeof (lists) / sizeof (lists[0]);
+		int listCount = count(lists);
 		table = new int *[listCount];
 		for (i1 = 0; i1 < listCount; i1++) {
 			table[i1] = new int[128];
@@ -63,7 +63,7 @@ int Sudoku::charModeMaxOrder = initCharModeMaxOrder();
 
 int Sudoku::initCharModeMaxOrder() {
 	const char *lists[] = SUDOKU_CHAR_LISTS;
-	return sizeof (lists) / sizeof (lists[0]);
+	return count(lists);
 }
 
 Sudoku::Sudoku(int order) {

@@ -107,8 +107,8 @@ void SudokuBacktracker::backtrack(Sudoku *sudoku, SudokuSolution &solution, int 
 }
 
 SudokuSolution *SudokuBacktracker::solve(Sudoku &sudoku, Mode mode, int solutionCountMax, Filter filter) {
-	static SudokuFilter::FlushNoteConfig configs[] = {{false, 1}};
-	return solve(sudoku, mode, solutionCountMax, filter, sizeof (configs) / sizeof (configs[0]), configs);
+	static SudokuFilter::FlushNoteConfig configs[] = SUDOKU_BACKTRACKER_FILTER_CONFIG_DEFAULT;
+	return solve(sudoku, mode, solutionCountMax, filter, count(configs), configs);
 }
 
 SudokuSolution *SudokuBacktracker::solve(Sudoku &sudoku, Mode mode, int solutionCountMax, Filter filter,

@@ -560,8 +560,8 @@ SudokuFilter::FlushNoteStatus SudokuFilter::flushNote(short subset) {
 }
 
 SudokuSolution *SudokuFilter::solve(Sudoku &sudoku, Mode mode) {
-	static FlushNoteConfig configs[] = {{true, -1}};
-	return solve(sudoku, mode, sizeof (configs) / sizeof (configs[0]), configs);
+	static FlushNoteConfig configs[] = SUDOKU_FILTER_CONFIG_DEFAULT;
+	return solve(sudoku, mode, count(configs), configs);
 }
 
 SudokuSolution *SudokuFilter::solve(Sudoku &sudoku, Mode mode, int configCount, FlushNoteConfig *configs) {

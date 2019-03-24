@@ -7,8 +7,8 @@
 #include "definitions.cpp"
 #include "classes/index.cpp"
 
-int main() {
-
+void solverTest() {
+	
 	int order = 3, side = order * order;
 	Sudoku sudoku(order);
 	SudokuSolution *solution = nullptr;
@@ -43,7 +43,45 @@ int main() {
 		fflush(fp);
 	}
 	fprintf(fp, "total spend: %lfms", totalTime);
-	fclose(fp);
+	// fclose(fp);
+
+}
+
+void judgeTest() {
+
+	static constexpr char *tips[] = {"easy", "medium", "hard", "very hard", "error", "multi-solution"};
+	
+	Sudoku sudoku(3);
+	SudokuJudge::Difficulty difficulty;
+	int ord;
+	FILE *fp = nullptr;
+
+	fp = stdout;
+	ord = 0;
+	while (sudoku.read() != Sudoku::RS_EOF) {
+		ord++;
+		difficulty = SudokuJudge::judge(sudoku);
+		fprintf(fp, "ordinal: %i\n", ord);
+		fprintf(fp, "difficulty: %s\n", tips[difficulty]);
+		for (int i = 0; i < 26; i++) {
+			fputc('=', fp);
+		}
+		fputc('\n', fp);
+	}
+
+}
+
+int main(int argc, char *args[]) {
+
+	if (argc > 1) {
+		if (strcmp(args[1], "solver") == 0) {
+			solverTest();
+		} else if (strcmp(args[1], "judge") == 0) {
+			judgeTest();
+		}
+	} else {
+		solverTest();
+	}
 
 	return 0;
 
